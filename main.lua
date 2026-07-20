@@ -1,67 +1,20 @@
 --[[
     ╔══════════════════════════════════════════════════════════╗
-    ║               SWORD MASTER PRO - REYZIM                  ║
-    ║        TEMA: RED PROFESSIONAL | LOGO FLUTUANTE           ║
-    ║          OTIMIZADO PARA EXECUTORES MOBILE                ║
+    ║               SWORD MASTER PRO - FLOATING PROGRESS       ║
+    ║        TEMA: SUPER RED | SEM BIBLIOTECAS EXTERNAS        ║
+    ║          100% COMPATÍVEL COM DELTA / MOBILE              ║
     ╚══════════════════════════════════════════════════════════╝
 ]]
 
-local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
+local TweenService = game:GetService("TweenService")
+local LocalPlayer = Players.LocalPlayer
 
-local Window = Fluent:CreateWindow({
-    Title = "Sword Master Pro - Reyzim",
-    SubTitle = "Mastery Manager",
-    TabWidth = 160,
-    Size = UDim2.fromOffset(580, 460),
-    Acrylic = true,
-    Theme = "Darker",
-    MinimizeKey = Enum.KeyCode.LeftControl
-})
+-- Remove versões antigas
+if CoreGui:FindFirstChild("ReyzimHubCustom") then CoreGui.ReyzimHubCustom:Destroy() end
 
--- Configuração de Cores
-Fluent.Options = {
-    AccentColor = Color3.fromRGB(255, 0, 0),
-    MainColor = Color3.fromRGB(20, 20, 20),
-    BackgroundColor = Color3.fromRGB(15, 15, 15),
-    OutlineColor = Color3.fromRGB(255, 0, 0)
-}
-
--- FUNÇÃO PARA CARREGAR IMAGEM
-local function GetImage(url)
-    local success, result = pcall(function() return game:HttpGet(url) end)
-    if success then
-        local name = "ReyzimLogo.png"
-        writefile(name, result)
-        return getcustomasset(name)
-    end
-    return ""
-end
-
--- BOTÃO FLUTUANTE
-local ScreenGui = Instance.new("ScreenGui")
-local ImageButton = Instance.new("ImageButton")
-local UICorner = Instance.new("UICorner")
-ScreenGui.Name = "SwordMasterFloatingLogo"
-ScreenGui.Parent = game.CoreGui
-ImageButton.Parent = ScreenGui
-ImageButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-ImageButton.BackgroundTransparency = 0.3
-ImageButton.Position = UDim2.new(0.1, 0, 0.6, 0)
-ImageButton.Size = UDim2.new(0, 55, 0, 55)
-ImageButton.Image = GetImage("https://raw.githubusercontent.com/gtzimooo/raw-poder-remove/refs/heads/main/file_000000007644720ea092ead937d3b54d.png")
-ImageButton.Draggable = true
-UICorner.CornerRadius = UDim.new(1, 0)
-UICorner.Parent = ImageButton
-
-local toggled = true
-ImageButton.MouseButton1Click:Connect(function()
-    toggled = not toggled
-    if Window.Root then Window.Root.Visible = toggled end
-    local gui = game.CoreGui:FindFirstChild("Fluent")
-    if gui then gui.Enabled = toggled end
-end)
-
--- CONFIGURAÇÕES DE ESPADAS
+-- [ CONFIGURAÇÕES ]
 local espadasConfig = {
     {nome = "Yama", meta = 350},
     {nome = "Tushita", meta = 350},
@@ -69,120 +22,221 @@ local espadasConfig = {
     {nome = "Shizu", meta = 300},
     {nome = "Oroshi", meta = 300}
 }
+_G.MasteryEnabled = false
 
--- FUNÇÕES DE LOGICA
-local function temAEspada(nomeEspada)
-    local player = game:GetService("Players").LocalPlayer
-    if player.Character:FindFirstChild(nomeEspada) or player.Backpack:FindFirstChild(nomeEspada) then
-        return true
-    end
-    return false
-end
+-- [ CRIAÇÃO DA INTERFACE ]
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "ReyzimHubCustom"
+ScreenGui.Parent = CoreGui
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
-local function equiparEspada(nomeEspada)
-    pcall(function() 
-        game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("LoadItem", nomeEspada) 
-    end)
-end
+-- Botão Flutuante (Logo + Progresso)
+local FloatingContainer = Instance.new("Frame")
+local FloatingLogo = Instance.new("ImageButton")
+local FloatingCorner = Instance.new("UICorner")
+local FloatingStroke = Instance.new("UIStroke")
+local FloatingText = Instance.new("TextLabel")
 
-local function obterLevelAtual(nomeEspada)
-    local player = game:GetService("Players").LocalPlayer
-    local item = player.Character:FindFirstChild(nomeEspada) or player.Backpack:FindFirstChild(nomeEspada)
-    if item then
-        local attr = item:GetAttribute("Level")
-        return attr and tonumber(attr) or 0
-    end
-    return 0
-end
+FloatingContainer.Name = "FloatingContainer"
+FloatingContainer.Parent = ScreenGui
+FloatingContainer.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+FloatingContainer.BackgroundTransparency = 1 -- Invisível, serve para agrupar
+FloatingContainer.Position = UDim2.new(0.1, 0, 0.2, 0)
+FloatingContainer.Size = UDim2.new(0, 60, 0, 85) -- Aumentado para caber o texto embaixo
 
--- TABS
-local Tabs = {
-    Main = Window:AddTab({ Title = "Maestria", Icon = "swords" }),
-    Settings = Window:AddTab({ Title = "Configurações", Icon = "settings" })
-})
+FloatingLogo.Name = "FloatingLogo"
+FloatingLogo.Parent = FloatingContainer
+FloatingLogo.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+FloatingLogo.Size = UDim2.new(0, 60, 0, 60)
+FloatingLogo.Image = "https://raw.githubusercontent.com/gtzimooo/raw-poder-remove/refs/heads/main/file_000000007644720ea092ead937d3b54d.png"
+FloatingLogo.Draggable = true
+FloatingLogo.Active = true
 
-Tabs.Main:AddSection("Progresso de Maestria")
+FloatingCorner.CornerRadius = UDim.new(1, 0)
+FloatingCorner.Parent = FloatingLogo
 
-local StatusParagraph = Tabs.Main:AddParagraph({
-    Title = "Status Atual",
-    Content = "Verificando inventário..."
-})
+FloatingStroke.Color = Color3.fromRGB(255, 0, 0)
+FloatingStroke.Thickness = 2
+FloatingStroke.Parent = FloatingLogo
+
+FloatingText.Name = "ProgressText"
+FloatingText.Parent = FloatingContainer
+FloatingText.Position = UDim2.new(0, -20, 0, 65)
+FloatingText.Size = UDim2.new(0, 100, 0, 20)
+FloatingText.BackgroundTransparency = 0.5
+FloatingText.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+FloatingText.Text = "Aguardando..."
+FloatingText.TextColor3 = Color3.fromRGB(255, 255, 255)
+FloatingText.Font = Enum.Font.GothamBold
+FloatingText.TextSize = 10
+FloatingText.Visible = true
+
+local TextCorner = Instance.new("UICorner", FloatingText)
+TextCorner.CornerRadius = UDim.new(0, 5)
+
+-- Painel Principal
+local MainFrame = Instance.new("Frame")
+local MainCorner = Instance.new("UICorner")
+local MainStroke = Instance.new("UIStroke")
+local Title = Instance.new("TextLabel")
+local StatusLabel = Instance.new("TextLabel")
+local Container = Instance.new("ScrollingFrame")
+local UIListLayout = Instance.new("UIListLayout")
+
+MainFrame.Name = "MainFrame"
+MainFrame.Parent = ScreenGui
+MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+MainFrame.Position = UDim2.new(0.5, -130, 0.5, -150)
+MainFrame.Size = UDim2.new(0, 260, 0, 320)
+MainFrame.Visible = false
+MainFrame.ClipsDescendants = true
+
+MainCorner.CornerRadius = UDim.new(0, 15)
+MainCorner.Parent = MainFrame
+
+MainStroke.Color = Color3.fromRGB(255, 0, 0)
+MainStroke.Thickness = 1.5
+MainStroke.Parent = MainFrame
+
+Title.Name = "Title"
+Title.Parent = MainFrame
+Title.Size = UDim2.new(1, 0, 0, 45)
+Title.BackgroundTransparency = 1
+Title.Text = "SWORD MASTER PRO"
+Title.TextColor3 = Color3.fromRGB(255, 0, 0)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 16
+
+StatusLabel.Name = "Status"
+StatusLabel.Parent = MainFrame
+StatusLabel.Position = UDim2.new(0, 10, 0, 45)
+StatusLabel.Size = UDim2.new(1, -20, 0, 30)
+StatusLabel.BackgroundTransparency = 1
+StatusLabel.Text = "Status: Aguardando..."
+StatusLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+StatusLabel.Font = Enum.Font.GothamSemibold
+StatusLabel.TextSize = 12
+StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+local ToggleBtn = Instance.new("TextButton")
+local ToggleCorner = Instance.new("UICorner")
+ToggleBtn.Name = "ToggleBtn"
+ToggleBtn.Parent = MainFrame
+ToggleBtn.Position = UDim2.new(0, 10, 0, 80)
+ToggleBtn.Size = UDim2.new(1, -20, 0, 35)
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+ToggleBtn.Text = "INICIAR AUTO MASTERY"
+ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleBtn.Font = Enum.Font.GothamBold
+ToggleBtn.TextSize = 13
+ToggleCorner.CornerRadius = UDim.new(0, 8)
+ToggleCorner.Parent = ToggleBtn
+
+Container.Name = "Container"
+Container.Parent = MainFrame
+Container.Position = UDim2.new(0, 10, 0, 125)
+Container.Size = UDim2.new(1, -20, 1, -135)
+Container.BackgroundTransparency = 1
+Container.ScrollBarThickness = 2
+Container.CanvasSize = UDim2.new(0, 0, 0, 300)
+UIListLayout.Parent = Container
+UIListLayout.Padding = UDim.new(0, 8)
 
 local labels = {}
 for _, espada in ipairs(espadasConfig) do
-    labels[espada.nome] = Tabs.Main:AddParagraph({
-        Title = espada.nome,
-        Content = "Aguardando..."
-    })
+    local ItemFrame = Instance.new("Frame")
+    local ItemCorner = Instance.new("UICorner")
+    local ItemLabel = Instance.new("TextLabel")
+    ItemFrame.Size = UDim2.new(1, -5, 0, 40)
+    ItemFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    ItemFrame.Parent = Container
+    ItemCorner.CornerRadius = UDim.new(0, 8)
+    ItemCorner.Parent = ItemFrame
+    ItemLabel.Size = UDim2.new(1, -10, 1, 0)
+    ItemLabel.Position = UDim2.new(0, 10, 0, 0)
+    ItemLabel.BackgroundTransparency = 1
+    ItemLabel.Text = "⚔️ " .. espada.nome .. ": Verificando..."
+    ItemLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+    ItemLabel.Font = Enum.Font.Gotham
+    ItemLabel.TextSize = 11
+    ItemLabel.TextXAlignment = Enum.TextXAlignment.Left
+    ItemLabel.Parent = ItemFrame
+    labels[espada.nome] = ItemLabel
 end
 
--- LOOP DE AUTOMAÇÃO ATUALIZADO
-_G.MasteryEnabled = false
-Tabs.Main:AddToggle("MasteryToggle", {
-    Title = "Iniciar Auto Mastery",
-    Default = false,
-    Callback = function(Value) _G.MasteryEnabled = Value end
-})
+-- [ LÓGICA DE INTERAÇÃO ]
+FloatingLogo.MouseButton1Click:Connect(function()
+    MainFrame.Visible = not MainFrame.Visible
+end)
 
-spawn(function()
+ToggleBtn.MouseButton1Click:Connect(function()
+    _G.MasteryEnabled = not _G.MasteryEnabled
+    if _G.MasteryEnabled then
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+        ToggleBtn.Text = "PARAR AUTO MASTERY"
+    else
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+        ToggleBtn.Text = "INICIAR AUTO MASTERY"
+        FloatingText.Text = "Parado"
+    end
+end)
+
+-- [ LÓGICA DE MAESTRIA COM PROGRESSO NO FLUTUANTE ]
+task.spawn(function()
     while true do
         task.wait(1)
         if _G.MasteryEnabled then
-            local algumaEspadaEncontrada = false
-            
             for _, espada in ipairs(espadasConfig) do
                 if not _G.MasteryEnabled then break end
                 
                 local nome = espada.nome
                 local meta = espada.meta
                 
-                -- VERIFICAÇÃO SE O JOGADOR TEM A ESPADA
-                if temAEspada(nome) then
-                    algumaEspadaEncontrada = true
-                    StatusParagraph:SetDesc("⚙️ Processando: " .. nome)
-                    
-                    equiparEspada(nome)
-                    task.wait(2)
-                    
-                    local levelAtual = obterLevelAtual(nome)
-                    
-                    if levelAtual < meta then
-                        while levelAtual < meta and _G.MasteryEnabled do
-                            levelAtual = obterLevelAtual(nome)
-                            StatusParagraph:SetDesc("🆙 Upando: " .. nome .. " (Lv " .. levelAtual .. ")")
-                            labels[nome]:SetDesc("Progresso: " .. levelAtual .. " / " .. meta)
-                            task.wait(2)
+                StatusLabel.Text = "Status: Verificando " .. nome
+                FloatingText.Text = "Checando " .. nome
+                
+                pcall(function() 
+                    game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("LoadItem", nome) 
+                end)
+                task.wait(2.5)
+                
+                local item = LocalPlayer.Character:FindFirstChild(nome) or LocalPlayer.Backpack:FindFirstChild(nome)
+                
+                if item then
+                    local level = item:GetAttribute("Level") or 0
+                    if level < meta then
+                        while level < meta and _G.MasteryEnabled do
+                            if not LocalPlayer.Character:FindFirstChild(nome) then
+                                pcall(function() game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("LoadItem", nome) end)
+                            end
+                            level = item:GetAttribute("Level") or 0
+                            
+                            -- ATUALIZAÇÃO EM TEMPO REAL NO FLUTUANTE
+                            FloatingText.Text = nome .. ": " .. level .. "/" .. meta
+                            StatusLabel.Text = "Status: Upando " .. nome
+                            labels[nome].Text = "⚔️ " .. nome .. ": " .. level .. " / " .. meta .. " [ATIVO]"
+                            labels[nome].TextColor3 = Color3.fromRGB(255, 100, 100)
+                            
+                            task.wait(3)
                         end
+                        labels[nome].Text = "⚔️ " .. nome .. ": Concluído ✓"
+                        labels[nome].TextColor3 = Color3.fromRGB(100, 255, 100)
                     else
-                        labels[nome]:SetDesc("Concluído: " .. levelAtual .. " [MAX] ✓")
+                        labels[nome].Text = "⚔️ " .. nome .. ": Já atingiu a meta ✓"
+                        labels[nome].TextColor3 = Color3.fromRGB(100, 255, 100)
                     end
                 else
-                    labels[nome]:SetDesc("Status: Não encontrada no inventário ✗")
+                    labels[nome].Text = "⚔️ " .. nome .. ": Não encontrada ✗"
                 end
             end
-            
-            if not algumaEspadaEncontrada then
-                StatusParagraph:SetDesc("❌ Nenhuma das espadas configuradas foi encontrada!")
-            else
-                StatusParagraph:SetDesc("✅ Ciclo de maestria concluído!")
-            end
+            FloatingText.Text = "Finalizado ✅"
         end
     end
 end)
 
--- SETTINGS
-Tabs.Settings:AddButton({
-    Title = "Destruir Hub",
-    Callback = function() 
-        _G.MasteryEnabled = false
-        ScreenGui:Destroy()
-        Window:Destroy() 
-    end
-})
+-- Arrastar o container inteiro quando a logo for arrastada
+FloatingLogo.Changed:Connect(function()
+    FloatingContainer.Position = FloatingLogo.Position
+end)
 
-Window:SelectTab(1)
-Fluent:Notify({
-    Title = "Sword Master Pro",
-    Content = "Script atualizado com detecção de inventário!",
-    Duration = 5
-})
+StatusLabel.Text = "Status: Hub Reyzim Pronto!"
